@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <textarea id="libraries" name="w3review" rows="4" cols="50"></textarea>
+    <br>
+    <input id="token" type="text">
+    <br>
+    <button id="start">Start</button>
+
+    <script>
+        const templateFunc = (org, repo, tag) => `name: cpp-cmake-mingw-prebuilt-release-actions-workflow
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - '*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+permissions:
+    contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        compiler:
+        - {
+            name: "x86_64-8.1.0-release-posix-seh-rt_v6-rev0",
+            url: "https://github.com/dirkarnez/cpp-tools/raw/main/x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z"
+          }
+        - {
+            name: "winlibs-x86_64-posix-seh-gcc-11.2.0-mingw-w64-9.0.0-r1",
+            url: "https://github.com/brechtsanders/winlibs_mingw/releases/download/11.2.0-12.0.1-9.0.0-r1/winlibs-x86_64-posix-seh-gcc-11.2.0-mingw-w64-9.0.0-r1.zip"
+          }
+        # - {
+        #     name: "msvc2019"
+        #   }
+
+    runs-on: windows-latest
+    env:
+      libraryName: ${repo}
+      cmakeInstallationPath: ${repo}-installation
+      tagName: ${tag}
+    steps:
+    
+      - uses: actions/checkout@v4
+        with:
+          repository: ${org}/${repo}
+          ref: \${{ env.tagName }}
+          path: \${{ env.libraryName }}
+          submodules: true
+          
+      - name: download compiler
+        if: \${{  matrix.compiler.url }}
+        shell: cmd
+        run: |
+          curl \${{ matrix.compiler.url }} -L --output compiler &&^
+          7z.exe x compiler
+          
+      - name: curl cmake-3.24.0-windows-x86_64.zip
+        shell: cmd
+        run: curl https://github.com/Kitware/CMake/releases/download/v3.24.0/cmake-3.24.0-windows-x86_64.zip -L --output cmake-3.24.0-windows-x86_64.zip && dir && 7z.exe x cmake-3.24.0-windows-x86_64.zip
+
+      - name: curl PortableGit-2.38.1-64-bit.7z.exe
+        shell: cmd
+        run: curl https://github.com/git-for-windows/git/releases/download/v2.38.1.windows.1/PortableGit-2.38.1-64-bit.7z.exe -L --output PortableGit-2.38.1-64-bit.7z.exe && dir && 7z.exe x PortableGit-2.38.1-64-bit.7z.exe -o"PortableGit-2.38.1-64-bit"
+      
+      # - shell: cmd
+      #   run: |
+      #     cd /d "\${{ github.workspace }}\\cmake-3.24.0-windows-x86_64\\share\\cmake-3.24\\Modules\\" &&^
+      #     del /f FindOpenSSL.cmake &&^
+      #     dir
+          
+      # - shell: cmd
+      #   run: |
+      #     cd \${{ env.libraryName }} &&^
+      #     dir &&^
+      #     "\${{ github.workspace }}\\PortableGit-2.38.1-64-bit\\usr\\bin\\sed.exe" -i "s/cmake_minimum_required(VERSION\\s\\+2.6.0)/cmake_minimum_required(VERSION 3.7)/g" CMakeLists.txt &&^
+      #     "\${{ github.workspace }}\\PortableGit-2.38.1-64-bit\\usr\\bin\\sed.exe" -i "s/find_package(OpenSSL)/find_package(OpenSSL CONFIG REQUIRED)/g" CMakeLists.txt &&^
+      #     "\${{ github.workspace }}\\PortableGit-2.38.1-64-bit\\usr\\bin\\sed.exe" -i "s/add_subdirectory(doc)//g" CMakeLists.txt &&^
+      #     type CMakeLists.txt
+          
+      # - shell: cmd
+      #   run: |
+      #     curl https://github.com/dirkarnez/openssl-prebuilt/releases/download/v3.1.3/openssl-v3.1.3-x86_64-8.1.0-release-posix-seh-rt_v6-rev0.zip -L -O &&^
+      #     7z.exe x openssl-v3.1.3-x86_64-8.1.0-release-posix-seh-rt_v6-rev0.zip -o"openssl-v3.1.3-x86_64-8.1.0-release-posix-seh-rt_v6-rev0"
+
+      # - shell: cmd
+      #   run: |
+      #     curl https://github.com/dirkarnez/zlib-prebuilt/releases/download/v1.2.13/zlib-v1.2.13-mingw64-x86_64-posix-seh-rev0-8.1.0.zip -L -O &&^
+      #     7z.exe x zlib-v1.2.13-mingw64-x86_64-posix-seh-rev0-8.1.0.zip -o"zlib-v1.2.13-mingw64-x86_64-posix-seh-rev0-8.1.0"
+          
+      # - name: set PATH, check mingw version, cmake generate, build and install
+      #   if: \${{ !matrix.compiler.url }}
+      #   shell: cmd
+      #   run: |
+      #       set PATH=^
+      #       \${{ github.workspace }}\\mingw64;^
+      #       \${{ github.workspace }}\\mingw64\\bin;^
+      #       \${{ github.workspace }}\\cmake-3.24.0-windows-x86_64\\bin;
+      #       set CD_LINUX=%CD:\\=/%
+      #       cd libsoda-cxx &&^
+      #       cmake.exe -G "Visual Studio 17 2022" -A x64 ^
+      #       -DCMAKE_BUILD_TYPE=Release ^
+      #       -DBUILD_SHARED_LIBS=OFF ^
+      #       -DCMAKE_INSTALL_PREFIX="cmake-build/\${{ env.cmakeInstallationPath }}" -B./cmake-build &&^
+      #       cd cmake-build && cmake --build . --config Release && cmake --install . 
+            
+      - name: set PATH, check mingw version, cmake generate, build and install
+        if: \${{ matrix.compiler.url }}
+        shell: cmd
+        run: |
+            set PATH=^
+            \${{ github.workspace }}\\mingw64;^
+            \${{ github.workspace }}\\mingw64\\bin;^
+            \${{ github.workspace }}\\cmake-3.24.0-windows-x86_64\\bin;
+            set CD_LINUX=%CD:\\=/%
+            gcc --version &&^
+            cd \${{ env.libraryName }} &&^
+            cmake.exe -LH -G"MinGW Makefiles" ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DBUILD_SHARED_LIBS=OFF ^
+            -DCMAKE_INSTALL_PREFIX="cmake-build/\${{ env.cmakeInstallationPath }}" -B./cmake-build &&^
+            cd cmake-build && ( cmake --build . --config Release && cmake --install . && cd .. && cmake.exe -LH -G"MinGW Makefiles" -B./cmake-build > "cmake-build\\\${{ env.cmakeInstallationPath }}\\cmake-lh-export.txt" || type .\\CMakeFiles\\CMakeError.log )
+            
+  # -DOpenSSL_DIR="%CD_LINUX%/openssl-v3.1.3-x86_64-8.1.0-release-posix-seh-rt_v6-rev0" ^
+  # -DZLIB_ROOT="%CD_LINUX%/zlib-v1.2.13-mingw64-x86_64-posix-seh-rev0-8.1.0" ^
+  # -DZLIB_USE_STATIC_LIBS=ON ^
+  
+      - name: Archive Release
+        uses: thedoctor0/zip-release@master
+        with:
+          type: 'zip'
+          directory: "\${{ env.libraryName }}/cmake-build/\${{ env.cmakeInstallationPath }}"
+          filename: "\${{ env.libraryName }}-\${{ github.ref_name }}-\${{ matrix.compiler.name }}.zip"
+        
+      - name: Release prebuilt
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "\${{ env.libraryName }}/cmake-build/\${{ env.cmakeInstallationPath }}/\${{ env.libraryName }}-\${{ github.ref_name }}-\${{ matrix.compiler.name }}.zip"
+          allowUpdates: true
+          token: \${{ secrets.GITHUB_TOKEN }}
+`;
+          /*
+https://github.com/libarchive/libarchive
+https://github.com/ornladios/ADIOS2
+          */
+
+          document.getElementById("start").addEventListener("click", () => {
+            const textareaValue = document.getElementById("libraries").value;
+            
+            debugger;
+
+            fetch(window.location.href.startsWith("https://dirkarnez.github.io") ? "https://dirkarnez.github.io/cpk-automated/dist/cpk-automated-v4.0.0.js" : "./dist/main.js")
+            .then(resp => resp.text())
+            .then(data => {
+                eval(data);
+
+                const authorizedCpk = new CpkAutomated.default().init("dirkarnez", document.getElementById("token").value);
+
+                Promise.all(
+                  textareaValue
+                  .split("\n")
+                  .map(library => {
+                    const repoName = new URL(library).pathname.slice(1);
+
+                    return authorizedCpk
+                    .getLatestTagName(repoName.split("/")[0], repoName.split("/")[1])
+                    .catch(err => console.error(err))
+                    .then(latestTag => {
+                        const org = repoName.split("/")[0];
+                        const repo = repoName.split("/")[1];
+                        
+                        return ({
+                          org: org,
+                          repo: repo,
+                            ...(!!latestTag ? ({latestTag: latestTag, cpkRepoTag: latestTag}) : (() => {
+                              window.open(`${library}`, "_blank");
+                              const input = prompt(`input tag for ${org}/${repo}`);
+                              if (!!input.match(/^c[0-9a-fA-F]{40}$/g)) {
+                                  return ({latestTag: input.slice(1), cpkRepoTag: input});
+                              } else {
+                                  return  ({latestTag: input, cpkRepoTag: input});
+                              }
+                          })())
+                        });
+                    })
+                    .then(info => {
+                      return authorizedCpk.getDescription(info.org, info.repo)
+                          .catch(err => console.error(err))
+                          .then(description => {
+                              return ({
+                                  ...info,
+                                  description
+                              })
+                          })
+                    })
+                  })
+                )
+                .then(infoList => {
+                    return authorizedCpk
+                        .start(infoList.map(item => (
+                        { 
+                            owner: item.org,
+                            repo: item.repo,
+                            cpkRepo: `${item.repo}-prebuilt`, 
+                            readmeContent: `${item.repo}-prebuilt\n${Array(`${item.repo}-prebuilt`.length).fill("=").join("")}\n![](https://github.com/dirkarnez/${item.repo}-prebuilt/actions/workflows/build.yml/badge.svg)\n\nPrebuilt of [${item.org}/${item.repo}: ${item.description}](https://github.com/${item.org}/${item.repo})\n\n### Playground\n- [dirkarnez/${item.repo}-playground](https://github.com/dirkarnez/${item.repo}-playground)`,
+                            workflowFilePath: ".github/workflows/build.yml", 
+                            workflowFileContent: templateFunc(item.org, item.repo, item.latestTag), 
+                            tagName: item.latestTag,
+                            cpkRepoTag: item.cpkRepoTag
+                        }))
+                        // [boostorg/boost: Super-project for modularized Boost]()
+                    )
+                })
+                .then(responseList => {
+                    console.log("all ok")
+                });
+            })
+          });
+    </script>
+</body>
+</html>
